@@ -32,6 +32,7 @@ login_manager.login_message = 'Please log in to access this page.'
 login_manager.login_message_category = 'warning'
 
 # Ensure directories exist
+os.makedirs(os.path.join(BASE_DIR, "instance"), exist_ok=True)
 os.makedirs(app.config.get('UPLOAD_FOLDER', os.path.join(BASE_DIR, "uploads")), exist_ok=True)
 os.makedirs(app.config.get('ENCRYPTED_FOLDER', os.path.join(BASE_DIR, "encrypted")), exist_ok=True)
 os.makedirs(app.config.get('KEYS_FOLDER', os.path.join(BASE_DIR, "keys")), exist_ok=True)

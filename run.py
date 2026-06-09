@@ -2,12 +2,13 @@
 run.py — Entry point for Secure Document Vault
 Usage:
     python run.py              (local development)
-    gunicorn run:app           (production)
+    gunicorn run:app           (production / Render)
 """
 import os
 from app import app, init_db
 
-# Initialise DB on startup
+# This runs at import time — safe because app.py already
+# creates all required directories (including instance/) before this point.
 with app.app_context():
     init_db()
 
