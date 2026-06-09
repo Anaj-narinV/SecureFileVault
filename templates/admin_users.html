@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block title %}Manage Users{% endblock %}
+{% block page_title %}User Management{% endblock %}
+
+{% block extra_head %}
+<style>
+.user-avatar-sm { width:34px;height:34px;background:linear-gradient(135deg,var(--neon-violet),var(--neon-cyan));border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:13px;font-weight:700;color:#fff;flex-shrink:0; }
+.user-cell      { display:flex;align-items:center;gap:10px; }
+.user-name-block .un { font-size:13px;font-weight:500;color:var(--text-primary); }
+.user-name-block .ue { font-size:11px;color:var(--text-muted);font-family:var(--font-mono); }
+.action-row { display:flex;gap:6px;align-items:center; }
+.status-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0;display:inline-block; }
+.status-dot.active   { background:var(--neon-green);box-shadow:0 0 6px rgba(0,255,136,0.7); }
+.status-dot.inactive { background:var(--neon-red);  box-shadow:0 0 6px rgba(255,59,92,0.5); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toolbar -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+  <div class="table-search-wrap">
+    <i class="bi bi-search"></i>
+    <input type="text" id="userFilter" class="form-control-cyber table-filter-input"
+           placeholder="Search users…" autocomplete="off" />
+  </div>
+  <span class="badge-cyber badge-cyan ms-auto">{{ users | length }} total users</span>
+</div>
+
+<div class="glass-card">
+  <div class="card-header-custom">
+    <i class="bi bi-people-fill card-icon"></i>
+    <span class="card-title">Registered Users</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="table-cyber" id="usersTable">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Role</th>
+          <th>Department</th>
+          <th>Status</th>
+          <th>Documents</th>
+          <th>Last Login</th>
+          <th>Joined</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr class="user-row" data-name="{{ (user.full_name or user.username) | lower }}" data-email="{{ user.email | lower }}">
+          <td>
+            <div class="user-cell">
+              <div class="user-avatar-sm">{{ (user.full_name or user.username)[0:2].upper() }}</div>
+              <div class="user-name-block">
+                <div class="un">{{ user.full_name or user.username }}</div>
+                <div class="ue">{{ user.email }}</div>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="badge-cyber badge-{{ 'cyan' if user.role == 'admin' else 'violet' }}">{{ user.role }}</span>
+          </td>
+          <td style="color:var(--text-secondary);font-size:12px;">{{ user.department or '—' }}</td>
+          <td>
+            <span class="status-dot {{ 'active' if user.is_active else 'inactive' }}"></span>
+            <span class="mono" style="font-size:11px;color:{{ 'var(--neon-green)' if user.is_active else 'var(--neon-red)' }};margin-left:6px;">
+              {{ 'Active' if user.is_active else 'Inactive' }}
+            </span>
+          </td>
+          <td class="mono" style="font-size:12px;color:var(--text-muted);">{{ user_uploads.get(user.id, 0) }}</td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ user.last_login.strftime('%b %d, %H:%M') if user.last_login else 'Never' }}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ user.created_at.strftime('%b %d %Y') if user.created_at else '—' }}
+          </td>
+          <td>
+            <div class="action-row">
+              <!-- Toggle active -->
+              {% if user.id != current_user.id %}
+              <form method="POST" action="{{ url_for('toggle_user', user_id=user.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit"
+                        class="btn-neon {{ 'btn-neon-red' if user.is_active else 'btn-neon-green' }}"
+                        style="padding:5px 10px;"
+                        title="{{ 'Deactivate' if user.is_active else 'Activate' }}"
+                        onclick="return confirm('{{ 'Deactivate' if user.is_active else 'Activate' }} user {{ user.username }}?');">
+                  <i class="bi bi-{{ 'person-dash' if user.is_active else 'person-check' }}"></i>
+                </button>
+              </form>
+
+              <!-- Change role -->
+              <form method="POST" action="{{ url_for('change_role', user_id=user.id) }}" style="display:inline;display:flex;gap:4px;align-items:center;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <select name="role" class="form-control-cyber select-cyber" style="width:auto;padding:5px 28px 5px 10px;font-size:12px;" aria-label="Change role" onchange="this.form.submit()">
+                  <option value="staff"  {% if user.role == 'staff'  %}selected{% endif %}>Staff</option>
+                  <option value="admin"  {% if user.role == 'admin'  %}selected{% endif %}>Admin</option>
+                </select>
+              </form>
+              {% else %}
+              <span class="mono" style="font-size:10px;color:var(--text-muted);">(you)</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function(){
+  var inp=document.getElementById('userFilter');
+  var rows=Array.prototype.slice.call(document.querySelectorAll('.user-row'));
+  if(!inp)return;
+  inp.addEventListener('input',function(){
+    var q=inp.value.toLowerCase().trim();
+    rows.forEach(function(r){
+      var n=r.getAttribute('data-name')||'',e=r.getAttribute('data-email')||'';
+      r.style.display=(!q||n.indexOf(q)>-1||e.indexOf(q)>-1)?'':'none';
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,218 @@
+{% extends "base.html" %}
+{% block title %}Documents{% endblock %}
+{% block page_title %}Document Vault{% endblock %}
+
+{% block extra_head %}
+<style>
+.docs-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.docs-toolbar .toolbar-left  { display:flex; align-items:center; gap:10px; flex:1; flex-wrap:wrap; }
+.docs-toolbar .toolbar-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+
+.table-wrapper { overflow-x: auto; }
+
+.doc-name-cell { display:flex; align-items:center; gap:10px; }
+.doc-name-cell .doc-title { font-size:13px; font-weight:500; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
+.doc-name-cell .doc-sub   { font-size:11px; color:var(--text-muted); font-family:var(--font-mono); }
+
+.action-row { display:flex; gap:6px; align-items:center; }
+
+.no-results { text-align:center; padding:48px 24px; color:var(--text-muted); font-family:var(--font-mono); font-size:12px; letter-spacing:0.08em; }
+.no-results i { font-size:40px; display:block; margin-bottom:12px; opacity:0.4; }
+
+.table-count-info {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  padding: 8px 14px;
+  border-top: var(--glass-border);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Toolbar -->
+<div class="docs-toolbar">
+  <div class="toolbar-left">
+    <!-- Live table filter -->
+    <div class="table-search-wrap">
+      <i class="bi bi-search"></i>
+      <input type="text" id="tableFilter" class="form-control-cyber table-filter-input"
+             placeholder="Filter by name or category…"
+             autocomplete="off" aria-label="Filter documents" />
+    </div>
+
+    <!-- Category filter -->
+    <form method="GET" action="{{ url_for('documents') }}" id="catForm" style="display:flex;gap:8px;align-items:center;">
+      <select name="category" class="form-control-cyber select-cyber" style="width:auto;min-width:160px;"
+              onchange="document.getElementById('catForm').submit()" aria-label="Filter by category">
+        <option value="">All Categories</option>
+        {% for cat in categories %}
+        <option value="{{ cat }}" {% if cat == selected_cat %}selected{% endif %}>{{ cat }}</option>
+        {% endfor %}
+      </select>
+      {% if selected_cat %}
+      <a href="{{ url_for('documents') }}" class="btn-neon btn-neon-red" style="padding:7px 12px;" title="Clear filter">
+        <i class="bi bi-x-lg"></i>
+      </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="toolbar-right">
+    <a href="{{ url_for('upload') }}" class="btn-neon btn-neon-solid">
+      <i class="bi bi-cloud-upload"></i> Upload
+    </a>
+  </div>
+</div>
+
+<!-- Table Card -->
+<div class="glass-card">
+  <div class="card-header-custom">
+    <i class="bi bi-folder2-open card-icon"></i>
+    <span class="card-title">Encrypted Documents</span>
+    <span class="badge-cyber badge-cyan ms-auto" id="docCountBadge">{{ docs | length }} files</span>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="table-cyber" id="docsTable" aria-label="Document list">
+      <thead>
+        <tr>
+          <th>Document</th>
+          <th>Category</th>
+          <th>Size</th>
+          <th>Access</th>
+          <th>Uploaded</th>
+          <th>Views</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="docsTableBody">
+        {% for doc in docs %}
+        <tr class="doc-row" data-name="{{ doc.original_filename | lower }}" data-cat="{{ (doc.category or '') | lower }}">
+          <td>
+            <div class="doc-name-cell">
+              <div class="file-icon file-icon-{{ doc.file_type }}">
+                {% if doc.file_type == 'pdf' %}<i class="bi bi-file-pdf"></i>
+                {% elif doc.file_type == 'docx' %}<i class="bi bi-file-word"></i>
+                {% elif doc.file_type == 'xlsx' %}<i class="bi bi-file-excel"></i>
+                {% elif doc.file_type == 'pptx' %}<i class="bi bi-file-ppt"></i>
+                {% else %}<i class="bi bi-file-earmark"></i>{% endif %}
+              </div>
+              <div>
+                <div class="doc-title" title="{{ doc.original_filename }}">{{ doc.original_filename }}</div>
+                <div class="doc-sub">{{ doc.file_type | upper if doc.file_type else '—' }} &bull; ID #{{ doc.id }}</div>
+              </div>
+            </div>
+          </td>
+          <td><span class="badge-cyber badge-violet">{{ doc.category or 'General' }}</span></td>
+          <td class="mono" style="font-size:12px;color:var(--text-muted);">
+            {% set sz = doc.file_size or 0 %}
+            {% if sz < 1024 %}{{ sz }} B
+            {% elif sz < 1048576 %}{{ "%.1f"|format(sz/1024) }} KB
+            {% else %}{{ "%.1f"|format(sz/1048576) }} MB{% endif %}
+          </td>
+          <td>
+            {% if doc.access_level == 'admin' %}
+              <span class="badge-cyber badge-red">Admin</span>
+            {% elif doc.access_level == 'public' %}
+              <span class="badge-cyber badge-green">Public</span>
+            {% else %}
+              <span class="badge-cyber badge-cyan">Staff</span>
+            {% endif %}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ doc.upload_date.strftime('%b %d %Y') if doc.upload_date else '—' }}
+          </td>
+          <td class="mono" style="font-size:12px;color:var(--text-muted);">
+            <i class="bi bi-eye text-cyan"></i> {{ doc.view_count }}
+            &nbsp;
+            <i class="bi bi-download text-violet" style="font-size:11px;"></i> {{ doc.download_count }}
+          </td>
+          <td>
+            <div class="action-row">
+              <a href="{{ url_for('view_document', doc_id=doc.id) }}"
+                 class="btn-neon btn-neon-cyan" style="padding:5px 10px;"
+                 title="View in browser" target="_blank">
+                <i class="bi bi-eye"></i>
+              </a>
+              <a href="{{ url_for('download_document', doc_id=doc.id) }}"
+                 class="btn-neon btn-neon-violet" style="padding:5px 10px;"
+                 title="Download decrypted">
+                <i class="bi bi-download"></i>
+              </a>
+              {% if current_user.role == 'admin' or doc.user_id == current_user.id %}
+              <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}"
+                    style="display:inline;"
+                    onsubmit="return confirm('Delete « {{ doc.original_filename }} »? This cannot be undone.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-neon btn-neon-red" style="padding:5px 10px;" title="Delete">
+                  <i class="bi bi-trash3"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <!-- Empty state -->
+    {% if not docs %}
+    <div class="no-results">
+      <i class="bi bi-folder2"></i>
+      No documents found. <a href="{{ url_for('upload') }}" style="color:var(--neon-cyan);">Upload one now</a>
+    </div>
+    {% endif %}
+
+    <!-- JS hidden empty state -->
+    <div id="filterEmpty" class="no-results" style="display:none;">
+      <i class="bi bi-search"></i>
+      No documents match your filter.
+    </div>
+  </div>
+
+  <div class="table-count-info" id="tableCountInfo">
+    Showing <span id="visibleCount">{{ docs | length }}</span> of {{ docs | length }} documents
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ── Instant client-side table filter ── */
+(function () {
+  var input   = document.getElementById('tableFilter');
+  var rows    = Array.prototype.slice.call(document.querySelectorAll('.doc-row'));
+  var empty   = document.getElementById('filterEmpty');
+  var countEl = document.getElementById('visibleCount');
+  var total   = rows.length;
+
+  if (!input) return;
+
+  input.addEventListener('input', function () {
+    var q = input.value.toLowerCase().trim();
+    var visible = 0;
+
+    rows.forEach(function (row) {
+      var name = row.getAttribute('data-name') || '';
+      var cat  = row.getAttribute('data-cat')  || '';
+      var show = !q || name.indexOf(q) > -1 || cat.indexOf(q) > -1;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    if (countEl) countEl.textContent = visible;
+    if (empty) empty.style.display = (visible === 0 && total > 0) ? 'block' : 'none';
+  });
+})();
+</script>
+{% endblock %}

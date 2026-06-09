@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+{% block title %}Upload Document{% endblock %}
+{% block page_title %}Secure Upload{% endblock %}
+
+{% block extra_head %}
+<style>
+.upload-zone {
+  border: 2px dashed rgba(0,212,255,0.25);
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  background: rgba(0,212,255,0.03);
+  position: relative;
+}
+.upload-zone:hover,
+.upload-zone.drag-over {
+  border-color: rgba(0,212,255,0.65);
+  background: rgba(0,212,255,0.07);
+  box-shadow: 0 0 28px rgba(0,212,255,0.1);
+}
+.upload-zone .uz-icon    { font-size:52px; color:var(--neon-cyan); opacity:0.5; transition:opacity 0.25s; }
+.upload-zone:hover .uz-icon { opacity:0.85; }
+.upload-zone .uz-title   { font-family:var(--font-display); font-size:18px; font-weight:700; color:var(--text-primary); margin:12px 0 6px; letter-spacing:0.04em; }
+.upload-zone .uz-sub     { font-size:13px; color:var(--text-secondary); }
+.upload-zone .uz-types   { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-top:8px; letter-spacing:0.08em; }
+#fileInput               { display:none; }
+
+.file-preview {
+  display: none;
+  align-items: center;
+  gap: 14px;
+  background: rgba(0,212,255,0.06);
+  border: 1px solid rgba(0,212,255,0.25);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-top: 16px;
+}
+.file-preview.visible { display: flex; }
+.file-preview .fp-icon  { font-size:32px; color:var(--neon-cyan); flex-shrink:0; }
+.file-preview .fp-name  { font-size:14px; font-weight:600; color:var(--text-primary); word-break:break-all; }
+.file-preview .fp-size  { font-family:var(--font-mono); font-size:11px; color:var(--text-muted); margin-top:2px; }
+.file-preview .fp-clear { margin-left:auto; background:none; border:none; color:var(--text-muted); font-size:18px; cursor:pointer; transition:color 0.2s; flex-shrink:0; padding:4px; }
+.file-preview .fp-clear:hover { color:var(--neon-red); }
+
+.upload-progress { display:none; margin-top:16px; }
+.upload-progress.visible { display:block; }
+.up-bar-track { height:4px; background:rgba(255,255,255,0.07); border-radius:99px; overflow:hidden; margin-bottom:6px; }
+.up-bar-fill  { height:100%; border-radius:99px; background:linear-gradient(90deg,var(--neon-cyan),var(--neon-violet)); width:0%; transition:width 0.3s ease; animation:scanPulse 1.5s ease-in-out infinite; }
+@keyframes scanPulse { 0%,100%{opacity:0.7;} 50%{opacity:1;} }
+.up-status { font-family:var(--font-mono); font-size:11px; color:var(--neon-cyan); letter-spacing:0.08em; }
+
+.form-row-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media(max-width:600px){ .form-row-2{ grid-template-columns:1fr; } }
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin: 20px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-label::after { content:''; flex:1; height:1px; background:rgba(0,212,255,0.1); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width:680px; margin:0 auto;">
+
+  <div class="glass-card">
+    <div class="card-header-custom">
+      <i class="bi bi-cloud-upload card-icon"></i>
+      <span class="card-title">Upload Encrypted Document</span>
+    </div>
+    <div class="card-body-custom">
+
+      <form method="POST" action="{{ url_for('upload') }}"
+            enctype="multipart/form-data"
+            id="uploadForm" novalidate autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <!-- Drop Zone -->
+        <div class="upload-zone" id="uploadZone" role="button"
+             tabindex="0" aria-label="Click or drag a file to upload">
+          <i class="bi bi-cloud-arrow-up-fill uz-icon"></i>
+          <div class="uz-title">Drop file here or click to browse</div>
+          <div class="uz-sub">Secure AES-256 Fernet encryption applied automatically</div>
+          <div class="uz-types">SUPPORTED: PDF · DOCX · XLSX · PPTX &nbsp;|&nbsp; MAX 50 MB</div>
+        </div>
+
+        <input type="file" name="file" id="fileInput"
+               accept=".pdf,.docx,.xlsx,.pptx"
+               aria-label="File input" />
+
+        <!-- File preview -->
+        <div class="file-preview" id="filePreview">
+          <i class="bi bi-file-earmark-lock fp-icon" id="previewIcon"></i>
+          <div>
+            <div class="fp-name" id="previewName"></div>
+            <div class="fp-size" id="previewSize"></div>
+          </div>
+          <button type="button" class="fp-clear" id="clearFile"
+                  aria-label="Remove file">
+            <i class="bi bi-x-circle"></i>
+          </button>
+        </div>
+
+        <!-- Upload progress (shown on submit) -->
+        <div class="upload-progress" id="uploadProgress">
+          <div class="up-bar-track"><div class="up-bar-fill" id="progressBar"></div></div>
+          <div class="up-status" id="progressStatus">Encrypting &amp; uploading…</div>
+        </div>
+
+        <!-- Metadata -->
+        <div class="section-label"><i class="bi bi-tag"></i> Document Metadata</div>
+
+        <div class="form-row-2">
+          <div>
+            <label for="docCategory" class="form-label-cyber">Category</label>
+            <div class="input-group-cyber">
+              <i class="bi bi-tag input-icon"></i>
+              <input type="text" id="docCategory" name="category"
+                     class="form-control-cyber"
+                     placeholder="e.g. Reports, Lab, HR"
+                     list="catSuggestions"
+                     autocomplete="off"
+                     value="General" />
+            </div>
+            <datalist id="catSuggestions">
+              <option value="General"></option>
+              <option value="Reports"></option>
+              <option value="Lab Results"></option>
+              <option value="HR Documents"></option>
+              <option value="Finance"></option>
+              <option value="Administration"></option>
+              <option value="Clinical"></option>
+            </datalist>
+          </div>
+
+          <div>
+            <label for="accessLevel" class="form-label-cyber">Access Level</label>
+            <div class="input-group-cyber">
+              <i class="bi bi-shield input-icon"></i>
+              <select id="accessLevel" name="access_level"
+                      class="form-control-cyber select-cyber"
+                      aria-label="Access level">
+                <option value="staff"  selected>Staff</option>
+                <option value="public">Public</option>
+                {% if current_user.role == 'admin' %}
+                <option value="admin">Admin Only</option>
+                {% endif %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top:16px;">
+          <label for="docDescription" class="form-label-cyber">Description <span style="color:var(--text-muted);font-size:10px;">(optional)</span></label>
+          <textarea id="docDescription" name="description"
+                    class="form-control-cyber"
+                    rows="3"
+                    placeholder="Brief description of this document…"
+                    style="resize:vertical;line-height:1.5;"></textarea>
+        </div>
+
+        <!-- Submit -->
+        <div style="margin-top:24px; display:flex; gap:12px; align-items:center;">
+          <button type="submit" class="btn-neon btn-neon-solid" id="submitBtn"
+                  style="flex:1; padding:12px; justify-content:center; font-size:14px;">
+            <i class="bi bi-lock-fill"></i>
+            Encrypt &amp; Upload Securely
+          </button>
+          <a href="{{ url_for('documents') }}" class="btn-neon btn-neon-red" style="padding:12px 16px;">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Security Info -->
+  <div class="glass-card" style="margin-top:16px;">
+    <div class="card-header-custom">
+      <i class="bi bi-shield-lock-fill card-icon" style="color:var(--neon-green);"></i>
+      <span class="card-title">Security Information</span>
+    </div>
+    <div class="card-body-custom">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <i class="bi bi-cpu text-cyan" style="font-size:18px;flex-shrink:0;margin-top:2px;"></i>
+          <div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-primary);">AES-256 Fernet</div>
+            <div style="font-size:12px;color:var(--text-secondary);">Every file encrypted with symmetric key before storage</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <i class="bi bi-key-fill text-violet" style="font-size:18px;flex-shrink:0;margin-top:2px;"></i>
+          <div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-primary);">Master Key</div>
+            <div style="font-size:12px;color:var(--text-secondary);">Keys stored separately from encrypted files</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <i class="bi bi-person-lock text-green" style="font-size:18px;flex-shrink:0;margin-top:2px;"></i>
+          <div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-primary);">Access Control</div>
+            <div style="font-size:12px;color:var(--text-secondary);">Role-based access enforced on every request</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-start;">
+          <i class="bi bi-journal-text text-amber" style="font-size:18px;flex-shrink:0;margin-top:2px;"></i>
+          <div>
+            <div style="font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text-primary);">Audit Logging</div>
+            <div style="font-size:12px;color:var(--text-secondary);">All upload, view, and download actions are logged</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* Drop zone + file preview */
+(function () {
+  var zone     = document.getElementById('uploadZone');
+  var fileInp  = document.getElementById('fileInput');
+  var preview  = document.getElementById('filePreview');
+  var prevName = document.getElementById('previewName');
+  var prevSize = document.getElementById('previewSize');
+  var prevIcon = document.getElementById('previewIcon');
+  var clearBtn = document.getElementById('clearFile');
+  var form     = document.getElementById('uploadForm');
+  var submitBtn= document.getElementById('submitBtn');
+  var progress = document.getElementById('uploadProgress');
+  var progBar  = document.getElementById('progressBar');
+
+  var ICONS = { pdf:'bi-file-pdf', docx:'bi-file-word', xlsx:'bi-file-excel', pptx:'bi-file-ppt' };
+
+  function fmtSize(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+  }
+
+  function showPreview(file) {
+    if (!file) return;
+    var ext = file.name.split('.').pop().toLowerCase();
+    prevName.textContent = file.name;
+    prevSize.textContent = fmtSize(file.size) + ' · ' + (ext.toUpperCase());
+    prevIcon.className   = 'bi ' + (ICONS[ext] || 'bi-file-earmark-lock') + ' fp-icon';
+    preview.classList.add('visible');
+  }
+
+  zone.addEventListener('click', function () { fileInp.click(); });
+  zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') fileInp.click(); });
+
+  zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', function () { zone.classList.remove('drag-over'); });
+  zone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    zone.classList.remove('drag-over');
+    var f = e.dataTransfer.files[0];
+    if (f) {
+      var dt = new DataTransfer(); dt.items.add(f);
+      fileInp.files = dt.files;
+      showPreview(f);
+    }
+  });
+
+  fileInp.addEventListener('change', function () {
+    if (fileInp.files[0]) showPreview(fileInp.files[0]);
+  });
+
+  clearBtn.addEventListener('click', function () {
+    fileInp.value = '';
+    preview.classList.remove('visible');
+  });
+
+  /* Submit with progress animation */
+  form.addEventListener('submit', function (e) {
+    if (!fileInp.files[0]) {
+      e.preventDefault();
+      window.SDVToast && window.SDVToast.show('warning', 'Please select a file first.');
+      return;
+    }
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-lock-fill"></i> Encrypting…';
+    progress.classList.add('visible');
+
+    /* Animate bar to ~85% then stop (actual redirect happens server-side) */
+    var pct = 0;
+    var iv = setInterval(function () {
+      pct += Math.random() * 18;
+      if (pct >= 85) { pct = 85; clearInterval(iv); }
+      progBar.style.width = pct + '%';
+    }, 200);
+  });
+})();
+</script>
+{% endblock %}

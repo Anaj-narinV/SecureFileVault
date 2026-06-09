@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Device Management{% endblock %}
+{% block page_title %}Device Registry{% endblock %}
+
+{% block content %}
+<div class="glass-card">
+  <div class="card-header-custom">
+    <i class="bi bi-cpu-fill card-icon"></i>
+    <span class="card-title">Registered Devices</span>
+    <span class="badge-cyber badge-amber ms-auto">{{ devices | length }} devices</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="table-cyber">
+      <thead>
+        <tr>
+          <th>Device</th>
+          <th>User</th>
+          <th>Browser / OS</th>
+          <th>IP Address</th>
+          <th>Status</th>
+          <th>Registered</th>
+          <th>Last Seen</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for device in devices %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <i class="bi bi-laptop text-cyan" style="font-size:18px;"></i>
+              <div>
+                <div style="font-size:13px;font-weight:500;color:var(--text-primary);">{{ device.device_name or 'Unknown Device' }}</div>
+                <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">{{ device.device_fingerprint[:16] }}…</div>
+              </div>
+            </div>
+          </td>
+          <td style="font-size:13px;color:var(--text-secondary);">
+            {% if device.user %}{{ device.user.username }}{% else %}<span style="color:var(--text-muted);">—</span>{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);">
+            {{ device.browser or '—' }} / {{ device.os or '—' }}
+          </td>
+          <td class="mono" style="font-size:12px;color:var(--text-muted);">{{ device.ip_address or '—' }}</td>
+          <td>
+            {% if device.is_trusted %}
+              <span class="badge-cyber badge-green"><i class="bi bi-shield-check"></i> Trusted</span>
+            {% else %}
+              <span class="badge-cyber badge-red"><i class="bi bi-shield-exclamation"></i> Pending</span>
+            {% endif %}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ device.registered_at.strftime('%b %d %Y') if device.registered_at else '—' }}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ device.last_seen.strftime('%b %d, %H:%M') if device.last_seen else 'Never' }}
+          </td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              {% if not device.is_trusted %}
+              <form method="POST" action="{{ url_for('approve_device', device_id=device.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-neon btn-neon-green" style="padding:5px 10px;" title="Approve device">
+                  <i class="bi bi-shield-check"></i>
+                </button>
+              </form>
+              {% endif %}
+              {% if device.is_trusted %}
+              <form method="POST" action="{{ url_for('revoke_device', device_id=device.id) }}" style="display:inline;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <button type="submit" class="btn-neon btn-neon-red" style="padding:5px 10px;"
+                        title="Revoke trust"
+                        onclick="return confirm('Revoke trust for this device?');">
+                  <i class="bi bi-shield-x"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not devices %}
+        <tr><td colspan="8">
+          <div class="empty-state"><i class="bi bi-cpu empty-icon"></i><p>No devices registered yet</p></div>
+        </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

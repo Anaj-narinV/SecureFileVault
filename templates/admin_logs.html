@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Audit Logs{% endblock %}
+{% block page_title %}Audit Logs{% endblock %}
+
+{% block content %}
+<!-- Filter Bar -->
+<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+  <form method="GET" action="{{ url_for('admin_logs') }}" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <select name="action" class="form-control-cyber select-cyber" style="width:auto;min-width:180px;" onchange="this.form.submit()" aria-label="Filter by action">
+      <option value="">All Actions</option>
+      {% for action in actions %}
+      <option value="{{ action }}" {% if action == action_filter %}selected{% endif %}>{{ action }}</option>
+      {% endfor %}
+    </select>
+    {% if action_filter %}
+    <a href="{{ url_for('admin_logs') }}" class="btn-neon btn-neon-red" style="padding:7px 12px;" title="Clear filter">
+      <i class="bi bi-x-lg"></i>
+    </a>
+    {% endif %}
+  </form>
+  <span class="badge-cyber badge-cyan ms-auto">Page {{ logs.page }} / {{ logs.pages }}</span>
+</div>
+
+<div class="glass-card">
+  <div class="card-header-custom">
+    <i class="bi bi-terminal-fill card-icon"></i>
+    <span class="card-title">Activity Log</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="table-cyber">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Action</th>
+          <th>User</th>
+          <th>Description</th>
+          <th>IP Address</th>
+          <th>Status</th>
+          <th>Timestamp</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs.items %}
+        <tr>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">{{ log.id }}</td>
+          <td>
+            <span class="badge-cyber {% if log.status == 'success' %}badge-green{% elif log.status == 'failed' %}badge-red{% else %}badge-amber{% endif %}">
+              {{ log.action }}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);">
+            {% if log.user %}{{ log.user.username }}{% else %}<span style="color:var(--text-muted);">system</span>{% endif %}
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ log.description }}">
+            {{ log.description or '—' }}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">{{ log.ip_address or '—' }}</td>
+          <td>
+            <span style="width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;background:{% if log.status=='success' %}var(--neon-green){% elif log.status=='failed' %}var(--neon-red){% else %}var(--neon-amber){% endif %};"></span>
+            <span class="mono" style="font-size:10px;color:var(--text-muted);">{{ log.status }}</span>
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ log.timestamp.strftime('%b %d %Y, %H:%M:%S') if log.timestamp else '—' }}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not logs.items %}
+        <tr><td colspan="7">
+          <div class="empty-state"><i class="bi bi-terminal empty-icon"></i><p>No log entries found</p></div>
+        </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if logs.pages > 1 %}
+  <div style="padding:16px 20px;border-top:var(--glass-border);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    {% if logs.has_prev %}
+    <a href="{{ url_for('admin_logs', page=logs.prev_num, action=action_filter) }}" class="btn-neon btn-neon-cyan" style="padding:6px 14px;">
+      <i class="bi bi-chevron-left"></i> Prev
+    </a>
+    {% endif %}
+    <span class="mono" style="font-size:11px;color:var(--text-muted);margin:0 4px;">
+      Page {{ logs.page }} of {{ logs.pages }}
+    </span>
+    {% if logs.has_next %}
+    <a href="{{ url_for('admin_logs', page=logs.next_num, action=action_filter) }}" class="btn-neon btn-neon-cyan" style="padding:6px 14px;">
+      Next <i class="bi bi-chevron-right"></i>
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

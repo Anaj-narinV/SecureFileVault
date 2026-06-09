@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Security Alerts{% endblock %}
+{% block page_title %}Security Alerts{% endblock %}
+
+{% block content %}
+
+<!-- Stats row -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:20px;">
+  {% set critical = alerts | selectattr('severity','equalto','critical') | selectattr('is_resolved','equalto',false) | list %}
+  {% set high     = alerts | selectattr('severity','equalto','high')     | selectattr('is_resolved','equalto',false) | list %}
+  {% set medium   = alerts | selectattr('severity','equalto','medium')   | selectattr('is_resolved','equalto',false) | list %}
+  {% set resolved = alerts | selectattr('is_resolved','equalto',true)    | list %}
+
+  <div class="stat-card accent-cyan" style="padding:16px 18px;">
+    <div class="stat-label">Total Alerts</div>
+    <div class="stat-value" style="font-size:26px;">{{ alerts | length }}</div>
+    <i class="bi bi-bell-fill stat-icon"></i>
+  </div>
+  <div class="stat-card" style="--accent-color:var(--neon-red);padding:16px 18px;">
+    <div class="stat-label">Critical</div>
+    <div class="stat-value" style="font-size:26px;color:var(--neon-red);">{{ critical | length }}</div>
+    <i class="bi bi-exclamation-octagon-fill stat-icon" style="color:var(--neon-red);"></i>
+  </div>
+  <div class="stat-card accent-amber" style="padding:16px 18px;">
+    <div class="stat-label">High</div>
+    <div class="stat-value" style="font-size:26px;color:var(--neon-amber);">{{ high | length }}</div>
+    <i class="bi bi-exclamation-triangle-fill stat-icon"></i>
+  </div>
+  <div class="stat-card accent-green" style="padding:16px 18px;">
+    <div class="stat-label">Resolved</div>
+    <div class="stat-value" style="font-size:26px;color:var(--neon-green);">{{ resolved | length }}</div>
+    <i class="bi bi-shield-check stat-icon" style="color:var(--neon-green);"></i>
+  </div>
+</div>
+
+<div class="glass-card">
+  <div class="card-header-custom">
+    <i class="bi bi-shield-exclamation card-icon" style="color:var(--neon-red);"></i>
+    <span class="card-title">All Security Alerts</span>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="table-cyber">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+          <th>User</th>
+          <th>IP</th>
+          <th>Severity</th>
+          <th>Status</th>
+          <th>Time</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alert in alerts %}
+        <tr style="opacity:{{ '0.55' if alert.is_resolved else '1' }};">
+          <td>
+            <span class="badge-cyber badge-red">{{ alert.alert_type }}</span>
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="{{ alert.description }}">
+            {{ alert.description or '—' }}
+          </td>
+          <td style="font-size:12px;color:var(--text-secondary);">
+            {% if alert.user %}{{ alert.user.username }}{% else %}<span style="color:var(--text-muted);">anonymous</span>{% endif %}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">{{ alert.ip_address or '—' }}</td>
+          <td>
+            {% if alert.severity == 'critical' %}
+              <span class="badge-cyber badge-red">critical</span>
+            {% elif alert.severity == 'high' %}
+              <span class="badge-cyber badge-amber">high</span>
+            {% elif alert.severity == 'medium' %}
+              <span class="badge-cyber badge-cyan">medium</span>
+            {% else %}
+              <span class="badge-cyber badge-muted">low</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if alert.is_resolved %}
+              <span class="badge-cyber badge-green"><i class="bi bi-check2"></i> Resolved</span>
+            {% else %}
+              <span class="badge-cyber badge-red"><i class="bi bi-dot"></i> Open</span>
+            {% endif %}
+          </td>
+          <td class="mono" style="font-size:11px;color:var(--text-muted);">
+            {{ alert.timestamp.strftime('%b %d, %H:%M') if alert.timestamp else '—' }}
+          </td>
+          <td>
+            {% if not alert.is_resolved %}
+            <form method="POST" action="{{ url_for('resolve_alert', alert_id=alert.id) }}" style="display:inline;">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+              <button type="submit" class="btn-neon btn-neon-green" style="padding:5px 10px;" title="Mark resolved">
+                <i class="bi bi-check2-circle"></i>
+              </button>
+            </form>
+            {% else %}
+            <span class="mono" style="font-size:10px;color:var(--text-muted);">done</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not alerts %}
+        <tr><td colspan="8">
+          <div class="empty-state"><i class="bi bi-shield-check empty-icon" style="color:var(--neon-green);"></i><p>No security alerts. System is clean.</p></div>
+        </td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

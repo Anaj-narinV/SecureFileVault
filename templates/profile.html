@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block title %}Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;margin:0 auto;display:grid;gap:20px;">
+
+  <!-- Profile Header -->
+  <div class="glass-card" style="padding:28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+    <div style="width:72px;height:72px;background:linear-gradient(135deg,var(--neon-violet),var(--neon-cyan));border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:28px;font-weight:700;color:#fff;flex-shrink:0;box-shadow:var(--glow-violet);">
+      {{ (current_user.full_name or current_user.username)[0:2].upper() }}
+    </div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-family:var(--font-display);font-size:22px;font-weight:700;color:var(--text-primary);letter-spacing:0.04em;">{{ current_user.full_name or current_user.username }}</div>
+      <div style="font-size:13px;color:var(--text-secondary);margin-top:4px;">{{ current_user.email }}</div>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+        <span class="badge-cyber badge-{{ 'cyan' if current_user.role == 'admin' else 'violet' }}">{{ current_user.role }}</span>
+        <span class="badge-cyber badge-{{ 'green' if current_user.is_active else 'red' }}">{{ 'Active' if current_user.is_active else 'Inactive' }}</span>
+        {% if current_user.department %}<span class="badge-cyber badge-amber">{{ current_user.department }}</span>{% endif %}
+      </div>
+    </div>
+    <div style="text-align:right;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);line-height:2;">
+      <div>MEMBER SINCE</div>
+      <div style="color:var(--neon-cyan);">{{ current_user.created_at.strftime('%b %d, %Y') if current_user.created_at else '—' }}</div>
+      <div style="margin-top:6px;">LAST LOGIN</div>
+      <div style="color:var(--text-secondary);">{{ current_user.last_login.strftime('%b %d, %H:%M') if current_user.last_login else 'N/A' }}</div>
+    </div>
+  </div>
+
+  <!-- Edit Profile -->
+  <div class="glass-card">
+    <div class="card-header-custom">
+      <i class="bi bi-person-gear card-icon"></i>
+      <span class="card-title">Edit Profile</span>
+    </div>
+    <div class="card-body-custom">
+      <form method="POST" action="{{ url_for('profile') }}" novalidate autocomplete="off">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <label for="fullName" class="form-label-cyber">Full Name</label>
+            <div class="input-group-cyber">
+              <i class="bi bi-person input-icon"></i>
+              <input type="text" id="fullName" name="full_name" class="form-control-cyber"
+                     value="{{ current_user.full_name or '' }}" placeholder="Your full name" autocomplete="name" />
+            </div>
+          </div>
+          <div>
+            <label for="department" class="form-label-cyber">Department</label>
+            <div class="input-group-cyber">
+              <i class="bi bi-building input-icon"></i>
+              <input type="text" id="department" name="department" class="form-control-cyber"
+                     value="{{ current_user.department or '' }}" placeholder="Your department" autocomplete="organization" />
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <label for="email" class="form-label-cyber">Email Address</label>
+          <div class="input-group-cyber">
+            <i class="bi bi-envelope input-icon"></i>
+            <input type="email" id="email" name="email" class="form-control-cyber"
+                   value="{{ current_user.email }}" placeholder="email@domain.com" autocomplete="email" />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-neon btn-neon-cyan" style="padding:10px 24px;">
+          <i class="bi bi-check2-circle"></i> Save Changes
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Change Password -->
+  <div class="glass-card">
+    <div class="card-header-custom">
+      <i class="bi bi-shield-lock card-icon" style="color:var(--neon-amber);"></i>
+      <span class="card-title">Change Password</span>
+    </div>
+    <div class="card-body-custom">
+      <form method="POST" action="{{ url_for('change_password') }}" novalidate autocomplete="off" id="pwForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+
+        <div style="margin-bottom:16px;">
+          <label for="oldPassword" class="form-label-cyber">Current Password</label>
+          <div class="input-group-cyber">
+            <i class="bi bi-lock input-icon"></i>
+            <input type="password" id="oldPassword" name="old_password"
+                   class="form-control-cyber" placeholder="Your current password"
+                   required style="padding-right:44px;" autocomplete="current-password" />
+            <button type="button" class="input-action" onclick="togglePw('oldPassword',this)" aria-label="Toggle visibility">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px;">
+          <label for="newPassword" class="form-label-cyber">New Password</label>
+          <div class="input-group-cyber">
+            <i class="bi bi-lock-fill input-icon"></i>
+            <input type="password" id="newPassword" name="new_password"
+                   class="form-control-cyber" placeholder="8+ characters, mixed"
+                   required style="padding-right:44px;" autocomplete="new-password" />
+            <button type="button" class="input-action" onclick="togglePw('newPassword',this)" aria-label="Toggle visibility">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div class="strength-meter-wrap" id="pwStrengthWrap" aria-live="polite">
+            <div class="strength-bar-track"><div class="strength-bar-fill" id="pwStrengthBar"></div></div>
+            <span class="strength-label" id="pwStrengthLabel"></span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+          <label for="confirmPassword" class="form-label-cyber">Confirm New Password</label>
+          <div class="input-group-cyber">
+            <i class="bi bi-lock-fill input-icon"></i>
+            <input type="password" id="confirmPassword" name="confirm_password"
+                   class="form-control-cyber" placeholder="Repeat new password"
+                   required style="padding-right:44px;" autocomplete="new-password" />
+            <button type="button" class="input-action" onclick="togglePw('confirmPassword',this)" aria-label="Toggle visibility">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+          <div id="pwMatchMsg" style="font-family:'Share Tech Mono',monospace;font-size:10px;margin-top:5px;display:none;letter-spacing:0.07em;"></div>
+        </div>
+
+        <button type="submit" class="btn-neon btn-neon-amber" style="padding:10px 24px;">
+          <i class="bi bi-shield-check"></i> Update Password
+        </button>
+      </form>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function togglePw(inputId, btn) {
+  var inp  = document.getElementById(inputId);
+  var icon = btn.querySelector('i');
+  if (!inp) return;
+  var isText = inp.type === 'text';
+  inp.type = isText ? 'password' : 'text';
+  icon.className = isText ? 'bi bi-eye' : 'bi bi-eye-slash';
+}
+
+/* Strength meter */
+(function(){
+  var inp=document.getElementById('newPassword'),wrap=document.getElementById('pwStrengthWrap'),bar=document.getElementById('pwStrengthBar'),lbl=document.getElementById('pwStrengthLabel');
+  var L=[{l:'Very Weak',c:'#ff3b5c',w:'14%'},{l:'Weak',c:'#ff6b2b',w:'30%'},{l:'Fair',c:'#ffb300',w:'52%'},{l:'Strong',c:'#00d4ff',w:'75%'},{l:'Very Strong',c:'#00ff88',w:'100%'}];
+  function score(p){var s=0;if(p.length>=8)s++;if(p.length>=12)s++;if(/[A-Z]/.test(p))s++;if(/[0-9]/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;return Math.min(s,4);}
+  if(!inp)return;
+  inp.addEventListener('input',function(){
+    if(!inp.value){wrap.classList.remove('visible');return;}
+    wrap.classList.add('visible');var lv=L[score(inp.value)];
+    bar.style.width=lv.w;bar.style.background=lv.c;lbl.textContent=lv.l;lbl.style.color=lv.c;
+  });
+})();
+
+/* Match check */
+(function(){
+  var p=document.getElementById('newPassword'),c=document.getElementById('confirmPassword'),m=document.getElementById('pwMatchMsg');
+  function check(){if(!c.value){m.style.display='none';return;}m.style.display='block';var ok=p.value===c.value;m.textContent=ok?'✓ Passwords match':'✗ Passwords do not match';m.style.color=ok?'#00ff88':'#ff3b5c';}
+  if(p&&c){p.addEventListener('input',check);c.addEventListener('input',check);}
+})();
+</script>
+{% endblock %}

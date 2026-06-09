@@ -1,0 +1,19 @@
+# Sensitive
+keys/
+instance/
+*.db
+
+# Uploads & encrypted files
+uploads/
+encrypted_storage/*.enc
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# Logs
+logs/*.log

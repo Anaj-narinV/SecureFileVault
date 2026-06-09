@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: secure-document-vault
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn run:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+    disk:
+      name: vault-storage
+      mountPath: /opt/render/project/src
+      sizeGB: 1
