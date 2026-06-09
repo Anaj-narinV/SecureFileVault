@@ -71,4 +71,4 @@ SecureDocumentVault/
 - All file uploads are validated against the allowed extensions whitelist.
 - CSRF protection is enabled on all POST forms via Flask-WTF.
 
-Live: https://securefilevault-1qxs.onrender.com/dashboard
+Live: https://securefilevault-1qxs.onrender.com/
